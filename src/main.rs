@@ -1,60 +1,54 @@
 use std::collections::HashMap;
 
-mod helpers;
+// mod helpers;
 
 type TokenId = u32;
 type Token = String;
 
 struct Vocabulary
 {
-    table: HashMap<TokenId, Token>,
-    size: u32,
+    id_to_token: HashMap<TokenId, Token>,
+    next_id: u32,
 }
 
 impl Vocabulary
 {
-    fn add(&mut self, item: Token)
+    fn add(&mut self, token: Token)
     {
-        self.table.insert(self.size, item);
-        self.size += 1
+        self.id_to_token.insert(self.next_id, token);
+        self.next_id += 1
     }
 }
 
-struct Merge<'a>
+fn tokenize_chars(text: &str) -> Vec<Token>
 {
-    rules: HashMap<u32, Vec<&'a str>>,
-}
-
-fn split_into_char(text: &String) -> Vec<String>
-{
-    let mut chars_vec: Vec<String> = Vec::new();
+    let mut tokens: Vec<Token> = Vec::new();
     for c in text.chars()
     {
-        chars_vec.push(c.to_string());
+        tokens.push(c.to_string());
     }
-    chars_vec
+    tokens
 }
 
-fn hash_freq(chars: &Vec<String>) -> HashMap<String, u32>
+fn token_frequency(tokens: &Vec<Token>) -> HashMap<Token, u32>
 {
-    let mut hash: HashMap<String, u32> = HashMap::new();
-    for c in chars
+    let mut counts: HashMap<Token, u32> = HashMap::new();
+    for token in tokens
     {
-        *hash.entry(c.clone()).or_insert(0) += 1;
+        *counts.entry(token.clone()).or_insert(0) += 1;
     }
-    hash
+    counts
 }
 
-
-fn update(text: &mut Vec<Token>, vocab: &Vocabulary)
+fn apply_vocab(text: &mut Vec<Token>, vocab: &Vocabulary)
 {
     let mut i = 0;
     while i + 1 < text.len()
     {
-        let corpus = format!("{}{}", *&text[i],*&text[i+1]);
-        if vocab.table.values().any(|v| *v == corpus)
+        let pair: Token = format!("{}{}", *&text[i],*&text[i+1]);
+        if vocab.id_to_token.values().any(|v| *v == pair)
         {
-            text[i] = corpus.to_string();
+            text[i] = pair.to_string();
             text.remove(i + 1);
         }
         else
@@ -65,7 +59,7 @@ fn update(text: &mut Vec<Token>, vocab: &Vocabulary)
 
     for token in text.iter_mut()
     {
-        for (k,v) in &vocab.table
+        for (k,v) in &vocab.id_to_token
         {
             if *token == *v
             {
@@ -75,65 +69,70 @@ fn update(text: &mut Vec<Token>, vocab: &Vocabulary)
     }
 }
 
-fn visualize_vocab(vocab: &Vocabulary)
+fn display_vocab(vocab: &Vocabulary)
 {
-    let mut keys: Vec<_> = vocab.table.keys().collect();
+    let mut keys: Vec<_> = vocab.id_to_token.keys().collect();
     keys.sort();
     for key in keys
     {
-        println!("{} -> {}",key, vocab.table[key]);
+        println!("{} -> {}",key, vocab.id_to_token[key]);
     }
 
 }
 
-fn visualize(text: &Vec<Token>)
+fn display(text: &Vec<Token>)
 {
     let s: String = text.join("");
     println!("{}", s);
 }
-fn find_most_freq(table: &HashMap<Token, u32>) -> Token
+
+fn most_frequent_token(table: &HashMap<Token, u32>) -> Token
 {
-    let mut most_freq: Token = String::new();
-    let mut _max: u32 = 0;
+    let mut most_freq_token: Token = String::new();
+    let mut highest_freq: u32 = 0;
     for (k,v) in table
     {
-        if *v > _max
+        if *v > highest_freq
         {
-            _max = *v;
-            most_freq = k.clone();
+            highest_freq = *v;
+            most_freq_token = k.clone();
 
         }
     }
-    most_freq
+    most_freq_token
 }
 
-fn encode(origin: &String)
+fn encode(raw: &str)
 {
-    let mut text: Vec<String> = split_into_char(&origin);
-    let mut vocab = Vocabulary{table: HashMap::new(), size: 0};
+    let mut tokens: Vec<Token> = tokenize_chars(&raw);
+    let mut vocab = Vocabulary{id_to_token: HashMap::new(), next_id: 0};
 
-
-    let mut pairs: Vec<String> = Vec::new();
+    let mut pairs: Vec<Token> = Vec::new();
     for _ in 0..10
     {
-        let text_size = &text.len();
-        for i in 0..*text_size-1
+        let token_size = &tokens.len();
+        for i in 0..*token_size-1
         {
-            let pair = &text[i..i+2];
+            let pair = &tokens[i..i+2];
             pairs.push(pair.join(""));
 
         }
 
-        let table = hash_freq(&pairs);
-        let corpus = find_most_freq(&table);
-        // println!("{:#?}", table);
-        vocab.add(corpus);
+        let frequencies = token_frequency(&pairs);
+        let most_freq_token = most_frequent_token(&frequencies);
+        if frequencies.get(&most_freq_token) == Some(&1) 
+        {
+            break
+        }
 
-        update(&mut text, &vocab);
+        vocab.add(most_freq_token);
+        pairs.clear();
+
+        apply_vocab(&mut tokens, &vocab);
     }
 
-    visualize_vocab(&vocab);
-    visualize(&text);
+    display_vocab(&vocab);
+    display(&tokens);
 }
 
 fn main()
