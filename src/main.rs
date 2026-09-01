@@ -86,11 +86,11 @@ fn display(tokens: &Vec<Token>)
     println!("{}", s);
 }
 
-fn most_frequent_token(table: &HashMap<Token, u32>) -> Token
+fn most_frequent_token(frequencies: &HashMap<Token, u32>) -> Token
 {
     let mut most_freq_token: Token = String::new();
     let mut highest_freq: u32 = 0;
-    for (k,v) in table
+    for (k,v) in frequencies
     {
         if *v > highest_freq
         {
@@ -102,13 +102,13 @@ fn most_frequent_token(table: &HashMap<Token, u32>) -> Token
     most_freq_token
 }
 
-fn encode(raw: &str)
+fn encode(raw: &str, merge: u32)
 {
     let mut tokens: Vec<Token> = tokenize_chars(&raw);
     let mut vocab: Vocabulary = Vocabulary{id_to_token: HashMap::new(), next_id: 0};
 
     let mut pairs: Vec<Token> = Vec::new();
-    for _ in 0..10
+    for _ in 0..merge
     {
         let token_size = tokens.len();
         for i in 0..token_size-1
@@ -121,7 +121,7 @@ fn encode(raw: &str)
         let frequencies: HashMap<Token, u32> = token_frequency(&pairs);
         let most_freq_token: Token = most_frequent_token(&frequencies);
 
-        if frequencies.get(&most_freq_token) == Some(&1) 
+        if frequencies.get(&most_freq_token) == Some(&1) // words appear one
         {
             break
         }
@@ -140,5 +140,5 @@ fn main()
 {
     // let text = helpers::get_input("enter your text: ");
     let text: String = String::from("low lowest nearst lower nicer");
-    encode(&text);
+    encode(&text, 10);
 }
