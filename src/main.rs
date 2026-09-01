@@ -40,16 +40,16 @@ fn token_frequency(tokens: &Vec<Token>) -> HashMap<Token, u32>
     counts
 }
 
-fn apply_vocab(text: &mut Vec<Token>, vocab: &Vocabulary)
+fn apply_vocab(tokens: &mut Vec<Token>, vocab: &Vocabulary)
 {
     let mut i = 0;
-    while i + 1 < text.len()
+    while i + 1 < tokens.len()
     {
-        let pair: Token = format!("{}{}", *&text[i],*&text[i+1]);
+        let pair: Token = format!("{}{}", *&tokens[i],*&tokens[i+1]);
         if vocab.id_to_token.values().any(|v| *v == pair)
         {
-            text[i] = pair.to_string();
-            text.remove(i + 1);
+            tokens[i] = pair.to_string();
+            tokens.remove(i + 1);
         }
         else
         {
@@ -57,7 +57,7 @@ fn apply_vocab(text: &mut Vec<Token>, vocab: &Vocabulary)
         }
     }
 
-    for token in text.iter_mut()
+    for token in tokens.iter_mut()
     {
         for (k,v) in &vocab.id_to_token
         {
@@ -80,9 +80,9 @@ fn display_vocab(vocab: &Vocabulary)
 
 }
 
-fn display(text: &Vec<Token>)
+fn display(tokens: &Vec<Token>)
 {
-    let s: String = text.join("");
+    let s: String = tokens.join("");
     println!("{}", s);
 }
 
@@ -105,21 +105,22 @@ fn most_frequent_token(table: &HashMap<Token, u32>) -> Token
 fn encode(raw: &str)
 {
     let mut tokens: Vec<Token> = tokenize_chars(&raw);
-    let mut vocab = Vocabulary{id_to_token: HashMap::new(), next_id: 0};
+    let mut vocab: Vocabulary = Vocabulary{id_to_token: HashMap::new(), next_id: 0};
 
     let mut pairs: Vec<Token> = Vec::new();
     for _ in 0..10
     {
-        let token_size = &tokens.len();
-        for i in 0..*token_size-1
+        let token_size = tokens.len();
+        for i in 0..token_size-1
         {
             let pair = &tokens[i..i+2];
             pairs.push(pair.join(""));
 
         }
 
-        let frequencies = token_frequency(&pairs);
-        let most_freq_token = most_frequent_token(&frequencies);
+        let frequencies: HashMap<Token, u32> = token_frequency(&pairs);
+        let most_freq_token: Token = most_frequent_token(&frequencies);
+
         if frequencies.get(&most_freq_token) == Some(&1) 
         {
             break
@@ -139,6 +140,5 @@ fn main()
 {
     // let text = helpers::get_input("enter your text: ");
     let text: String = String::from("low lowest nearst lower nicer");
-    // let chars = split_into_char(&text);
     encode(&text);
 }
