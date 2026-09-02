@@ -4,36 +4,26 @@ use std::collections::{HashMap, BTreeMap};
 
 type TokenId = u32;
 type Token = String;
-type Bytes_token = u8;
+type ByteToken = Vec<u8>;
 
 struct Vocabulary
 {
-    id_to_token: HashMap<TokenId, Vec<Bytes_token>>,
+    id_to_token: HashMap<TokenId, ByteToken>,
     next_id: u32,
 }
 
 impl Vocabulary
 {
-    fn add(&mut self, token: &Vec<Bytes_token>)
+    fn add(&mut self, token: &ByteToken)
     {
         self.id_to_token.insert(self.next_id, token.to_vec());
         self.next_id += 1
     }
 }
 
-fn tokenize_chars(text: &str) -> Vec<Token>
+fn token_frequency(tokens: &Vec<ByteToken>) -> BTreeMap<ByteToken, u32>
 {
-    let mut tokens: Vec<Token> = Vec::new();
-    for c in text.chars()
-    {
-        tokens.push(c.to_string());
-    }
-    tokens
-}
-
-fn token_frequency(tokens: &Vec<Vec<Bytes_token>>) -> BTreeMap<Vec<Bytes_token>, u32>
-{
-    let mut counts: BTreeMap<Vec<Bytes_token>, u32> = BTreeMap::new();
+    let mut counts: BTreeMap<ByteToken, u32> = BTreeMap::new();
     for token in tokens
     {
         *counts.entry(token.clone()).or_insert(0) += 1;
@@ -41,10 +31,10 @@ fn token_frequency(tokens: &Vec<Vec<Bytes_token>>) -> BTreeMap<Vec<Bytes_token>,
     counts
 }
 
-fn most_frequent_token<'a, I>(frequencies: I) -> Vec<Bytes_token>
-where I: IntoIterator<Item = (&'a Vec<Bytes_token>, &'a u32)>,
+fn most_frequent_token<'a, I>(frequencies: I) -> ByteToken
+where I: IntoIterator<Item = (&'a ByteToken, &'a u32)>,
 {
-    let mut most_freq_token: Vec<Bytes_token> = Vec::new();
+    let mut most_freq_token: ByteToken = Vec::new();
     let mut highest_freq: u32 = 0;
     for (k,v) in frequencies
     {
@@ -58,13 +48,12 @@ where I: IntoIterator<Item = (&'a Vec<Bytes_token>, &'a u32)>,
     most_freq_token
 }
 
-fn apply_vocab(tokens: &mut Vec<Vec<Bytes_token>>, vocab: &Vocabulary)
+fn apply_vocab(tokens: &mut Vec<ByteToken>, vocab: &Vocabulary)
 {
     let mut i = 0;
     while i + 1 < tokens.len()
     {
-        // let pair: Token = format!("{}{}", *&tokens[i],*&tokens[i+1]);
-        let mut pair: Vec<Bytes_token> = tokens[i].clone();
+        let mut pair: ByteToken = tokens[i].clone();
         pair.extend(tokens[i + 1].iter().copied());
         if vocab.id_to_token.values().any(|v| *v == pair)
         {
@@ -74,19 +63,38 @@ fn apply_vocab(tokens: &mut Vec<Vec<Bytes_token>>, vocab: &Vocabulary)
         else
         {
             i += 1;
+
         }
     }
+}
 
-    // for token in tokens.iter_mut()
-    // {
-    //     for (k,v) in &vocab.id_to_token
-    //     {
-    //         if *token == *v
-    //         {
-    //             *token = format!("<{}>", k);
-    //         }
-    //     }
-    // }
+fn display_as_string(byte_tokens: &Vec<ByteToken>, vocab: &Vocabulary)
+{
+    let mut text: Token = String::new();
+    let token_to_id: HashMap<ByteToken, u32> =
+        vocab.id_to_token
+        .iter()
+        .map(|(id, token)| (token.clone(), *id))
+        .collect();
+
+    for token in byte_tokens
+    {
+        if token.len() == 1 
+        {
+            text.push(token[0] as char);
+        }
+        else if let Some(id) = token_to_id.get(token)
+        {
+            let base = format!("<{}>", id);
+            text.push_str(&base);
+        }
+        else
+        {
+            text.push_str("<?>");
+            
+        }
+    }
+    println!("{}", text);
 }
 
 fn display_vocab(vocab: &Vocabulary)
@@ -100,20 +108,19 @@ fn display_vocab(vocab: &Vocabulary)
 
 }
 
-fn display(tokens: &Vec<Token>)
+fn display(tokens: &Vec<ByteToken>)
 {
-    let s: String = tokens.join("");
-    println!("{}", s);
+    println!("{:?}", tokens);
 }
 
 fn encode(raw: &str, merge: u32)
 {
     // let mut tokens: Vec<Token> = tokenize_chars(&raw);
-    let bytes: &[Bytes_token] = raw.as_bytes();
-    let mut tokens : Vec<Vec<Bytes_token>> = bytes.iter().map(|&b| vec![b]).collect();
+    let bytes: &[u8] = raw.as_bytes();
+    let mut tokens : Vec<ByteToken> = bytes.iter().map(|&b| vec![b]).collect();
     let mut vocab: Vocabulary = Vocabulary{id_to_token: HashMap::new(), next_id: 0};
 
-    let mut pairs: Vec<Vec<Bytes_token>> = Vec::new();
+    let mut pairs: Vec<ByteToken> = Vec::new();
     for _ in 0..merge
     {
         let token_size = tokens.len();
@@ -125,8 +132,8 @@ fn encode(raw: &str, merge: u32)
 
         }
 
-        let frequencies: BTreeMap<Vec<Bytes_token>, u32> = token_frequency(&pairs);
-        let most_freq_token: Vec<Bytes_token> = most_frequent_token(&frequencies);
+        let frequencies: BTreeMap<ByteToken, u32> = token_frequency(&pairs);
+        let most_freq_token: ByteToken = most_frequent_token(&frequencies);
 
         if frequencies.get(&most_freq_token) == Some(&1) // words appear one
         {
@@ -135,15 +142,14 @@ fn encode(raw: &str, merge: u32)
 
         vocab.add(&most_freq_token);
         pairs.clear();
-        // println!("{:#?}", frequencies);
-        // println!("{:#?}", most_freq_token);
 
         apply_vocab(&mut tokens, &vocab);
     }
-    println!("{:#?}", vocab.id_to_token);
 
-    // display_vocab(&vocab);
-    // display(&tokens);
+    display_vocab(&vocab);
+    println!("{}", raw);
+    display(&tokens);
+    display_as_string(&tokens, &vocab);
 }
 
 fn main()
