@@ -165,7 +165,6 @@ fn encode(raw: &str, merge: u32)
     );
 
     //timer
-    let mut total_time = std::time::Duration::ZERO;
     let mut count_time = std::time::Duration::ZERO;
     let mut freq_time = std::time::Duration::ZERO;
     let mut merge_time = std::time::Duration::ZERO;
