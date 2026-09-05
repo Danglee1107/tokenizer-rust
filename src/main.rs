@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, HashMap}, num::FpCategory::Zero};
+use std::{collections::{BTreeMap, HashMap}};
 
 use indicatif::{ProgressBar, ProgressStyle};
 
