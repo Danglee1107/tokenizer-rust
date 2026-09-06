@@ -7,6 +7,7 @@ use indexmap::IndexMap;
 // mod helpers;
 
 type TokenId = u32;
+type Token = String;
 type ByteToken = Vec<u8>;
 
 struct Vocabulary
@@ -19,8 +20,8 @@ impl Vocabulary
 {
     fn add(&mut self, token: &ByteToken)
     {
-        self.next_id += 1;
         self.id_to_token.insert(self.next_id, token.clone());
+        self.next_id += 1;
     }
 }
 
@@ -136,6 +137,12 @@ fn update_frequencies_after_merge
                 if *c > 0 { *c -= 1; }
                 heap.push((*c, old_pair));
             }
+
+            let new_pair: ByteToken = [ol.as_slice(), new_vocab.as_slice()].concat();
+            pair_parts.entry(new_pair.clone()).or_insert((ol.clone(), new_vocab.clone()));
+            let c = frequencies.entry(new_pair.clone()).or_insert(0);
+            *c += 1;
+            heap.push((*c, new_pair));
         }
 
         if let Some(ref or_) = m.old_right
@@ -146,19 +153,7 @@ fn update_frequencies_after_merge
                 if *c > 0 { *c -= 1; }
                 heap.push((*c, old_pair));
             }
-        }
 
-        if let Some(ref ol) = m.old_left
-        {
-            let new_pair: ByteToken = [ol.as_slice(), new_vocab.as_slice()].concat();
-            pair_parts.entry(new_pair.clone()).or_insert((ol.clone(), new_vocab.clone()));
-            let c = frequencies.entry(new_pair.clone()).or_insert(0);
-            *c += 1;
-            heap.push((*c, new_pair));
-        }
-
-        if let Some(ref or_) = m.old_right
-        {
             let new_pair: ByteToken = [new_vocab.as_slice(), or_.as_slice()].concat();
             pair_parts.entry(new_pair.clone()).or_insert((new_vocab.clone(), or_.clone()));
             let c = frequencies.entry(new_pair.clone()).or_insert(0);
@@ -178,19 +173,15 @@ fn display_vocab(vocab: &Vocabulary, bytes: bool)
     for key in keys
     {
         let token: ByteToken = vocab.id_to_token[key].clone();
+        let s: Token = token.iter().map(|&b| b as char ).collect();
         if !bytes
         {
-            if let Ok(t) = std::str::from_utf8(&token)
-            {
-                println!("{} -> '{}'",key, t);
-            }
-            else 
-            {
-                println!("{} -> {:?}", key, token);
-            }
-            continue;
+            println!("{} -> {:?}",key, s);
         }
-        println!("{} -> {:?}",key, token);
+        else
+        {
+            println!("{} -> {:?}",key, token);
+        }
     }
 }
 
@@ -216,6 +207,11 @@ fn encode(raw: &str, merge: u32)
     let mut frequencies: IndexMap<ByteToken, u32> = IndexMap::new();
     let mut pair_parts: HashMap<ByteToken, (ByteToken, ByteToken)> = HashMap::new();
     let mut heap: BinaryHeap<(u32, ByteToken)> = BinaryHeap::new();
+
+    for i in 0..256
+    {
+        vocab.add(&vec![i as u8]);
+    }
 
     // progress bar 
     let pb = ProgressBar::new(merge as u64);
@@ -258,8 +254,20 @@ fn encode(raw: &str, merge: u32)
             };
 
             let real_count = frequencies.get(&pair).copied().unwrap_or(0);
+            let token_bound = pair.iter().filter(|&&x| x == 32).count();
 
-            if real_count != heap_count
+            if token_bound == 1
+            {
+                if let Some(last) = pair.last()
+                {
+                    if *last != 32 && pair[0] != 32 
+                    {
+                        continue;
+                    }
+                }
+            }
+
+            if real_count != heap_count || token_bound > 1
             {
                 continue;
             }
@@ -289,7 +297,7 @@ fn encode(raw: &str, merge: u32)
         merge_rules.add(&most_freq_token);
 
         let start = std::time::Instant::now();
-        let merges = apply_vocab(&mut tokens,&left, &right);
+        let merges = apply_vocab(&mut tokens, &left, &right);
         update_frequencies_after_merge
             (
                 merges,
@@ -306,27 +314,29 @@ fn encode(raw: &str, merge: u32)
     }
     pb.finish_with_message("Encoding Complete!");
 
-    // println!("time takes for encoding:");
-    println!("Frequency counting : {:?}", count_time);
-    println!("Find most frequency: {:?}", freq_time);
-    println!("Apply merges       : {:?}", merge_time);
-    println!("total              : {:?}", start_total.elapsed());
 
     //display
     println!("Vocabulary:");
     display_vocab(&vocab, false);
     println!("----------------");
     println!("Rules:");
-    display_rules(&merge_rules);
-    println!("{:?}", tokens);
-    display_as_string(&tokens, &vocab);
+    // display_rules(&merge_rules);
+    // println!("{:?}", tokens);
+    // display_as_string(&tokens, &vocab);
+    
+    // println!("time takes for encoding:");
+    println!("Frequency counting : {:?}", count_time);
+    println!("Find most frequency: {:?}", freq_time);
+    println!("Apply merges       : {:?}", merge_time);
+    println!("total              : {:?}", start_total.elapsed());
 }
 
 fn main()
 {
-    // let text = helpers::get_input("enter your text: ");
-    let text1: String = String::from("low lower lowest pretty prettier prettiest cat in the hat");
-    println!("time for 1 page: {} chars", text1.len());
-    encode(&text1, 10000);
+    let text: String = String::from(r##"
+The New York Times (NYT)[b] is a newspaper based in Manhattan, New York City. The New York Times covers domestic, national, and international news, and publishes opinion pieces and reviews. One of the longest-running newspapers in the United States, the Times serves as one of the country's newspapers of record. As of August 2025, The New York Times had 11.88 million total and 11.3 million online subscribers, both the highest numbers for any newspaper in the United States by a significant margin; the total also included 580,000 print subscribers. The New York Times is published by the New York Times Company. Since 1896, the company has been chaired by the Ochs-Sulzberger family. The current chairman and the paper's publisher is A. G. Sulzberger. The Times is headquartered at The New York Times Building in Midtown Manhattan.
+        "##);
+    println!("time for text: {} chars", text.len());
+    encode(&text, 10000);
 
 }
